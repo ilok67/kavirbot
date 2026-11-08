@@ -1,11 +1,13 @@
-# KavirBot (Android)
+صرفا برای انتخاب سایز و خرید لاستیک از سایت کویر تایر هست 
+۱. میری داخل برنامه
+۲. لاگین به سایت کویر تایر میکنی
+۳. میری قسمت خرید 
+۴. از تنظیمات بات اولویت سایزی که میخوای رو انتخاب و ذخیره میکنی
+۴. اطلاعات مشتری رو میبینی اومده
+۵. بخوای سریع پرداخت کنی هم اطلاعات کارت رو وارد میکنی ذخیره میکنی
+۶. دکمه روشن رو میزنی و منتظر می مونی تا موجود شد آلارم میده و انتخاب و اضافه به سبد خرید میکنه و میره صفحه پرداخت بخوای همونجا پرداخت میکنی نخوای هم لینک پرداخت رو کپی میکنی میری جای دیگه می پردازی
 
-WebView app that runs your KT12 userscript unchanged (app/src/main/assets/KT12-_Panel.js)
-with a native GM_getValue/GM_setValue shim (assets/gm_shim.js).
-
-Build: open this folder in Android Studio (Koala+), let Gradle sync, Run.
-Or: gradle assembleDebug  -> app/build/outputs/apk/debug/app-debug.apk
-
-To update the bot logic: replace assets/KT12-_Panel.js and rebuild.
-
-Storage: settings/card number -> EncryptedSharedPreferences (Keystore). CVV -> RAM only.
+نکات :
+فیلتر شکن خاموش باشه 
+اینترنت روشن و پایدار باشه 
+صفحه برنامه رو نبندید یا قفل نکنید
