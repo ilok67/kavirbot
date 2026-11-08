@@ -1,21 +1,5 @@
-// ==UserScript==
-// @name         Kavirtire KT 12 - Fast Panel
-// @namespace    http://tampermonkey.net/
-// @version      2026-11-02-site-refresh-fix
-// @description  KT11 professional panel: customer selects tire sizes, matching any product code
-// @author       You
-// @match        https://kavirtire.ir/esale/*
-// @match        https://sep.shaparak.ir/OnlinePG/OnlinePG*
-// @match        https://sep.shaparak.ir/OnlinePG/SendToken*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=kavirtire.ir
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @run-at       document-start
-// ==/UserScript==
-
 (function () {
     'use strict';
-
     const KT11_TOKEN_KEY = 'KT11_SAMAN_PAYMENT_TOKEN';
     const KT11_TOKEN_TIME_KEY = 'KT11_SAMAN_PAYMENT_TOKEN_TIME';
     const KT11_CUSTOMER_INFO_KEY = 'KT11_CUSTOMER_INFO_FOR_PAYMENT';
@@ -23,7 +7,6 @@
     const KT11_CARD_CVV_TEMP_KEY = 'KT11_CARD_CVV_TEMP';
     const KT11_CARD_CVV_TIME_KEY = 'KT11_CARD_CVV_TEMP_TIME';
     const KT11_CARD_CVV_TTL_MS = 6 * 60 * 1000;
-
     async function clearExpiredTemporaryCVV() {
         try {
             if (typeof GM_getValue !== 'function' || typeof GM_setValue !== 'function') return;
@@ -35,7 +18,6 @@
         } catch (_) {}
     }
     clearExpiredTemporaryCVV();
-
     function saveSamanToken(value) {
         if (typeof value !== 'string') return false;
         const token = value.trim();
@@ -52,10 +34,7 @@
         }
         return false;
     }
-
     function findSamanToken(value, depth = 0, seen = new Set()) {
-        // فقط samanToken مشخص یا توکنِ داخل لینک واقعی SendToken پذیرفته می‌شود؛
-        // هر فیلدی که صرفاً نامش شامل token باشد ممکن است توکن نامرتبط باشد.
         if (depth > 7 || value == null) return '';
         if (typeof value === 'string') {
             const raw = value;
@@ -68,8 +47,6 @@
                     if (t && t.trim().length >= 8) return t.trim();
                 } catch (_) {}
             }
-            // کویر تایر ممکن است HTML فرم پرداخت را به صورت رشته داخل wire:snapshot/JSON نگه دارد.
-            // در این حالت فرم هنوز در DOM نیست؛ توکن را از input با name="Token" استخراج می‌کنیم.
             const inputTags = raw.match(/<input\b[^>]*>/gi) || [];
             for (const tag of inputTags) {
                 const nameMatch = tag.match(/\bname\s*=\s*(["'])Token\1/i);
@@ -96,7 +73,6 @@
         }
         return '';
     }
-
     function scanStoredSamanToken() {
         try {
             for (const storage of [localStorage, sessionStorage]) {
@@ -112,11 +88,9 @@
         } catch (_) {}
         return false;
     }
-
     function normalizeCardDigits(value) {
         return String(value || '').replace(/\D/g, '');
     }
-
     function setFieldValue(field, value) {
         if (!field || value == null) return false;
         const text = String(value);
@@ -136,7 +110,6 @@
         field.dispatchEvent(new Event('blur', { bubbles: true }));
         return true;
     }
-
     function fieldDescriptor(field) {
         const label = field.id ? document.querySelector(`label[for="${CSS.escape(field.id)}"]`) : null;
         const parentText = field.parentElement?.textContent || '';
@@ -144,7 +117,6 @@
             label?.textContent, parentText.length <= 80 ? parentText : '']
             .filter(Boolean).join(' ').toLowerCase();
     }
-
     async function autofillSEPCard() {
         if (location.hostname !== 'sep.shaparak.ir') return false;
         let card = {};
@@ -157,8 +129,6 @@
                 cvvTime = Number(await GM_getValue(KT11_CARD_CVV_TIME_KEY, 0)) || 0;
             }
         } catch (_) { return false; }
-
-        // CVV2 فقط برای تحویل یک‌باره و حداکثر شش دقیقه نگهداری می‌شود؛ پس از انقضا پاک می‌شود.
         if (!cvvTime || Date.now() - cvvTime > KT11_CARD_CVV_TTL_MS) {
             cvv = '';
             try {
@@ -170,17 +140,14 @@
         }
         const cardNumber = normalizeCardDigits(card.number);
         if (!cardNumber) return false;
-
         const fields = [...document.querySelectorAll('input, select')]
             .filter(field => !field.disabled && field.type !== 'hidden' && field.offsetParent !== null);
         const descriptors = fields.map(field => ({ field, desc: fieldDescriptor(field) }));
         const findField = (regex, exclude = null) => descriptors.find(item => regex.test(item.desc) && (!exclude || !exclude.test(item.desc)))?.field;
-
         const numberField = findField(/card.?number|cardno|pan|شماره\s*کارت|شمارهکارت/i, /cvv|cvc|month|year|ماه|سال/i);
         const cvvField = findField(/cvv\s*2?|cvc|security.?code|card.?security|کد\s*امنیتی|کد\s*امنیت|رمز\s*کارت/i);
         const monthField = findField(/expire.?month|exp.?month|expiry.?month|month|ماه\s*انقضا|انقضا.*ماه/i, /year|سال/i);
         const yearField = findField(/expire.?year|exp.?year|expiry.?year|year|سال\s*انقضا|انقضا.*سال/i, /month|ماه/i);
-
         const numberFilled = !!numberField && setFieldValue(numberField, cardNumber);
         const cvvFilled = !!(cvv && cvvField && setFieldValue(cvvField, cvv));
         let monthFilled = false;
@@ -193,8 +160,6 @@
             const year = String(card.year);
             yearFilled = setFieldValue(yearField, year) || setFieldValue(yearField, year.slice(-2));
         }
-
-        // فقط وقتی فیلدهای اصلی پیدا و پر شدند، تلاش خودکار متوقف می‌شود.
         const done = numberFilled && monthFilled && yearFilled;
         if (done) {
             const note = document.getElementById('kt11-sep-note');
@@ -210,7 +175,6 @@
         }
         return done;
     }
-
     function startSEPCardAutofill() {
         let attempts = 0;
         const timer = setInterval(async () => {
@@ -222,16 +186,12 @@
             document.addEventListener('DOMContentLoaded', () => autofillSEPCard(), { once: true });
         }
     }
-
     function installPaymentTokenCapture() {
         if (location.hostname !== 'kavirtire.ir') return;
         scanStoredSamanToken();
-
-        // قبل از ارسال فرم به درگاه، فیلدهای توکن فرم را می‌خوانیم؛ این حالت در ارسال POST قابل‌مشاهده در URL نیست.
         function capturePaymentForm(form) {
             if (!(form instanceof HTMLFormElement)) return false;
             const action = String(form.action || form.getAttribute('action') || '');
-            // گاهی توکن داخل query خود action قرار دارد.
             try {
                 const actionUrl = new URL(action, location.href);
                 if (/sep\.shaparak\.ir|onlinepg/i.test(actionUrl.href)) {
@@ -260,7 +220,6 @@
                 return originalRequestSubmit.apply(this, args);
             };
         }
-        // اسکن فرم‌های موجود و پارامترهای ورودی صفحه، محدود به فرم/فیلدهای دارای نام توکن.
         const scanPaymentForms = () => {
             try {
                 for (const form of document.forms) if (capturePaymentForm(form)) return true;
@@ -284,8 +243,6 @@
             return false;
         };
         document.addEventListener('DOMContentLoaded', scanPaymentForms, { once: true });
-
-        // پاسخ‌های مربوط به پرداخت/Livewire را سبک بررسی می‌کنیم؛ اطلاعات کارت بانکی خوانده یا ذخیره نمی‌شود.
         if (typeof window.fetch === 'function' && !window.fetch.__kt11TokenMonitor) {
             const originalFetch = window.fetch;
             const wrappedFetch = function (...args) {
@@ -320,7 +277,6 @@
             wrappedFetch.__kt11TokenMonitor = true;
             window.fetch = wrappedFetch;
         }
-
         if (!XMLHttpRequest.prototype.send.__kt11TokenMonitor) {
             const originalOpen = XMLHttpRequest.prototype.open;
             const originalSend = XMLHttpRequest.prototype.send;
@@ -352,16 +308,12 @@
             wrappedSend.__kt11TokenMonitor = true;
             XMLHttpRequest.prototype.send = wrappedSend;
         }
-
-        // محدود و زمان‌دار؛ از اسکن بی‌نهایت صفحه جلوگیری می‌کند.
         let scans = 0;
         const scanTimer = setInterval(() => {
             scans++;
             if (scanStoredSamanToken() || (document.readyState !== 'loading' && (() => { try { for (const form of document.forms) if (form.querySelector('input[name*=token i],textarea[name*=token i]') && capturePaymentForm(form)) return true; } catch (_) {} return false; })()) || scans >= 30) clearInterval(scanTimer);
         }, 500);
     }
-
-    // اگر مرورگر لحظه‌ای از مسیر SendToken عبور کند، توکن را پیش از ادامه مسیر ذخیره می‌کنیم.
     if (location.hostname === 'sep.shaparak.ir' && location.pathname.startsWith('/OnlinePG/')) {
         try {
             const currentParams = new URL(location.href).searchParams;
@@ -369,16 +321,14 @@
             if (directToken) saveSamanToken(directToken);
         } catch (_) {}
     }
-
-    // درگاه از حافظه مشترک Tampermonkey توکنِ به‌دست‌آمده از مرحله پرداخت را می‌خواند.
     if (location.hostname === 'sep.shaparak.ir' && location.pathname.startsWith('/OnlinePG/')) {
         const mountSEPHelper = () => {
             if (!document.body || document.getElementById('kt11-sep-helper')) return;
             const box = document.createElement('div');
             box.id = 'kt11-sep-helper';
             box.dir = 'rtl';
-            box.style.cssText = 'position:fixed;z-index:2147483647;bottom:16px;right:16px;width:310px;max-width:calc(100vw - 32px);padding:14px;background:#171717;color:#fff;border:1px solid #d5a900;border-radius:12px;box-shadow:0 6px 24px #0008;font:13px/1.7 Tahoma,sans-serif;';
-            box.innerHTML = '<b style="display:block;margin-bottom:6px;color:#ffd43b;font-size:15px">لینک پرداخت KT11</b><div id="kt11-sep-note" style="margin-bottom:8px">در حال بررسی توکن پرداخت…</div><input id="kt11-sep-link" type="text" readonly dir="ltr" placeholder="لینک پرداخت پس از دریافت توکن نمایش داده می‌شود" style="box-sizing:border-box;width:100%;padding:9px;margin:0 0 8px;border:1px solid #555;border-radius:7px;background:#242424;color:#fff;font:12px/1.5 Tahoma,sans-serif;"/><button id="kt11-sep-copy" type="button" style="width:100%;padding:10px;border:0;border-radius:7px;background:#d5a900;color:#111;font-weight:bold;cursor:pointer">کپی لینک پرداخت</button><button id="kt11-sep-close" type="button" style="margin-top:6px;width:100%;padding:7px;border:1px solid #777;border-radius:7px;background:transparent;color:#fff;cursor:pointer">بستن پنل</button>';
+            box.style.cssText = 'position:fixed;z-index:2147483647;bottom:16px;right:16px;width:310px;max-width:calc(100vw - 32px);padding:14px;background:#0b1b2b;color:#fff;border:1px solid #06b6d4;border-radius:12px;box-shadow:0 6px 24px #0008;font:13px/1.7 Tahoma,sans-serif;';
+            box.innerHTML = '<b style="display:block;margin-bottom:6px;color:#67e8f9;font-size:15px">لینک پرداخت KT11</b><div id="kt11-sep-note" style="margin-bottom:8px">در حال بررسی توکن پرداخت…</div><input id="kt11-sep-link" type="text" readonly dir="ltr" placeholder="لینک پرداخت پس از دریافت توکن نمایش داده می‌شود" style="box-sizing:border-box;width:100%;padding:9px;margin:0 0 8px;border:1px solid #2a86ab;border-radius:7px;background:#10293f;color:#fff;font:12px/1.5 Tahoma,sans-serif;"/><button id="kt11-sep-copy" type="button" style="width:100%;padding:10px;border:0;border-radius:7px;background:#06b6d4;color:#06121f;font-weight:bold;cursor:pointer">کپی لینک پرداخت</button><button id="kt11-sep-close" type="button" style="margin-top:6px;width:100%;padding:7px;border:1px solid #6f95ab;border-radius:7px;background:transparent;color:#fff;cursor:pointer">بستن پنل</button>';
             document.body.appendChild(box);
             startSEPCardAutofill();
             const note = box.querySelector('#kt11-sep-note');
@@ -394,7 +344,6 @@
                     try { token = await GM_getValue(KT11_TOKEN_KEY, ''); } catch (_) {}
                 }
                 if (!token) return '';
-                // توکن به لینک استاندارد پرداخت سامان تبدیل می‌شود.
                 return 'https://sep.shaparak.ir/OnlinePG/SendToken?token=' + encodeURIComponent(token);
             }
             async function refreshPaymentLink() {
@@ -450,7 +399,7 @@
                 } catch (_) {
                     const temp = document.createElement('textarea');
                     temp.value = message;
-                    temp.style.cssText = 'box-sizing:border-box;width:100%;height:150px;margin-top:8px;padding:8px;direction:rtl;background:#242424;color:#fff;border:1px solid #777;border-radius:7px;';
+                    temp.style.cssText = 'box-sizing:border-box;width:100%;height:150px;margin-top:8px;padding:8px;direction:rtl;background:#10293f;color:#fff;border:1px solid #6f95ab;border-radius:7px;';
                     const old = box.querySelector('#kt11-sep-copy-message');
                     if (old) old.remove();
                     temp.id = 'kt11-sep-copy-message';
@@ -469,30 +418,14 @@
         else mountSEPHelper();
         return;
     }
-
     installPaymentTokenCapture();
-
-    /* =========================================================
-       تنظیمات پایه
-       ========================================================= */
-
     const FAST_CHECK_INTERVAL = 200;
     const STEP_INTERVAL = 100;
-    const REFRESH_INTERVAL = 4100;
+    const REFRESH_INTERVAL = 10000;
     const BAD_GATEWAY_RETRY = 400;
     const BAD_GATEWAY_COOLDOWN = 350;
-
-    const TELEGRAM_URL =
-        'https://t.me/kavir_tire_bot';
-
     const STORAGE_KEY =
         'KT11_USER_SETTINGS';
-
-
-    /* =========================================================
-       لیست محصولات
-       ========================================================= */
-
     const productOptions = [
         { code: 'KB12', size: '165/65/13' },
         { code: 'KB26', size: '165/65/13' },
@@ -514,12 +447,6 @@
         { code: 'KB700', size: '235/65/17' },
         { code: 'KB66', size: '215/60/17' }
     ];
-
-
-    /* =========================================================
-       تنظیمات پیش‌فرض
-       ========================================================= */
-
     const DEFAULT_SETTINGS = {
         quantity: 2,
         product1: {
@@ -533,180 +460,108 @@
             quantity: 2
         }
     };
-
-
-    /* =========================================================
-       دریافت تنظیمات ذخیره‌شده
-       ========================================================= */
-
     function loadSettings() {
-
         try {
-
             const saved =
                 localStorage.getItem(
                     STORAGE_KEY
                 );
-
             if (!saved) {
-
                 return JSON.parse(
                     JSON.stringify(
                         DEFAULT_SETTINGS
                     )
                 );
-
             }
-
             const parsed =
                 JSON.parse(saved);
-
-            // پشتیبانی از تنظیمات قدیمی: اگر quantity کلی ذخیره نشده باشد،
-            // مقدار معتبر قبلی محصول اول (۱ یا ۲) به عنوان مقدار کلی استفاده می‌شود.
             const legacyQuantity = Number(parsed.product1?.quantity);
             const savedQuantity = Number(parsed.quantity);
-            const quantity = [1, 2].includes(savedQuantity)
+            const quantity = [1, 2, 3, 4].includes(savedQuantity)
                 ? savedQuantity
-                : ([1, 2].includes(legacyQuantity) ? legacyQuantity : 2);
-
+                : ([1, 2, 3, 4].includes(legacyQuantity) ? legacyQuantity : 2);
             const product1 = normalizeProduct(parsed.product1, DEFAULT_SETTINGS.product1);
             const product2 = normalizeProduct(parsed.product2, DEFAULT_SETTINGS.product2);
             product1.quantity = quantity;
             product2.quantity = quantity;
-
             return { quantity, product1, product2 };
-
         } catch (error) {
-
             console.error(
                 'KT11 settings error:',
                 error
             );
-
             return JSON.parse(
                 JSON.stringify(
                     DEFAULT_SETTINGS
                 )
             );
-
         }
-
     }
-
-
     function normalizeProduct(
         product,
         fallback
     ) {
-
         if (!product) {
             return {
                 ...fallback
             };
         }
-
         const validOption = productOptions.some(option =>
             option.code === product.code && option.size === product.size
         );
-
         if (!validOption) {
-
             return {
                 ...fallback
             };
-
         }
-
         const quantity =
             Number(product.quantity);
-
         return {
-
             code:
                 product.code,
-
             size:
                 product.size,
-
             quantity:
                 Number.isInteger(quantity) &&
                 quantity >= 1 &&
                 quantity <= 4
                     ? quantity
                     : fallback.quantity
-
         };
-
     }
-
-
     let settings =
         loadSettings();
-
-
-    /* =========================================================
-       محصولات فعال
-       ========================================================= */
-
     const product1 = {
         ...settings.product1,
         name: settings.product1.code
     };
-
     const product2 = {
         ...settings.product2,
         name: settings.product2.code
     };
-
     const products = [product1, product2];
-
     function productKey(product) {
         return `${product.code}|${product.size}`.replace(/[^a-zA-Z0-9_-]/g, '_');
     }
-
-
-
-    /* =========================================================
-       انتخابگرها
-       ========================================================= */
-
     const SELECTORS = {
-
         product:
             '.product',
-
         title:
             '.title',
-
         unavailable:
             '.control.unavailable',
-
         basket:
             '.btn-basket',
-
         minus:
             'button[wire\\:click="minus()"]',
-
         gateway:
             '.method[wire\\:click="setGateway(\'refahk\')"]',
-
         active:
             'active',
-
         next:
             'a[wire\\:click="next()"]'
-
     };
-
-
-    /* =========================================================
-       وضعیت ربات
-       ========================================================= */
-
-    // وضعیت ON/OFF بین جابه‌جایی صفحات سایت حفظ می‌شود؛
-    // در اولین نصب، مقدار پیش‌فرض روشن است.
     const BOT_ENABLED_STORAGE_KEY = 'KT11_BOT_ENABLED';
-
     function readSavedBotEnabled() {
         try {
             const saved = localStorage.getItem(BOT_ENABLED_STORAGE_KEY);
@@ -715,19 +570,14 @@
         } catch (_) {}
         return true;
     }
-
     function saveBotEnabledState() {
         try {
             localStorage.setItem(BOT_ENABLED_STORAGE_KEY, botEnabled ? '1' : '0');
         } catch (_) {}
     }
-
     let botEnabled = readSavedBotEnabled();
-
     let purchaseStarted = false;
-
     let selectedProduct = null;
-
     let pollTimer = null;
     let reloadTimer = null;
     let refreshTimer = null;
@@ -738,7 +588,6 @@
     let botLocked = false;
     let gatewayRecoveryRunning = false;
     let lastGatewayRecovery = 0;
-    // شمارنده فقط با کلیک واقعی روی «بروزرسانی موجودی» زیاد می‌شود و بین صفحات همین تب حفظ می‌شود.
     const CHECK_COUNT_STORAGE_KEY = 'KT11_CHECK_COUNT';
     const LAST_CHECK_AT_STORAGE_KEY = 'KT11_LAST_CHECK_AT';
     let checkCount = 0;
@@ -749,43 +598,23 @@
     } catch (_) {}
     let addedProducts = [];
     let lastInfoUpdate = 0;
-
-
     const productStates = {};
-
-
     function rebuildProductStates() {
-
         Object.keys(
             productStates
         ).forEach(key => {
             delete productStates[key];
         });
-
         products.forEach(product => {
-
             productStates[productKey(product)] = {
-
                 status:
                     'waiting',
-
                 text:
                     'در انتظار'
-
             };
-
         });
-
     }
-
-
     rebuildProductStates();
-
-
-    /* =========================================================
-       ساخت گزینه‌های محصولات
-       ========================================================= */
-
     function getProductOptionsHTML(
         selectedProduct
     ) {
@@ -797,14 +626,11 @@
             `;
         }).join('');
     }
-
     function getQuantityOptionsHTML(
         quantity
     ) {
-
-        return [1, 2]
+        return [1, 2, 3, 4]
             .map(number => {
-
                 return `
                     <option
                         value="${number}"
@@ -813,19 +639,10 @@
                         ${number} حلقه
                     </option>
                 `;
-
             })
             .join('');
-
     }
-
-
-    /* =========================================================
-       ساخت داشبورد
-       ========================================================= */
-
     function createDashboard() {
-
         if (
             document.getElementById(
                 'kt11-dashboard'
@@ -833,25 +650,17 @@
         ) {
             return;
         }
-
         if (!document.body) {
-
             setTimeout(
                 createDashboard,
                 100
             );
-
             return;
         }
-
-
         const panel =
             document.createElement('div');
-
         panel.id =
             'kt11-dashboard';
-
-
         panel.innerHTML = `
 
             <div id="kt11-head">
@@ -1143,12 +952,7 @@
             </div>
 
 
-            <div
-                id="kt11-support-box"
-                title="ورود به کانال تلگرام"
-                role="link"
-                tabindex="0"
-            >
+            <div id="kt11-support-box">
 
                 <div id="kt11-support-icon">
                     🎧
@@ -1157,28 +961,14 @@
                 <div id="kt11-support-content">
 
                     <div id="kt11-support-title">
-                        خرید و پشتیبانی ربات
+                        این بات مخصوص دی جی عاصم نوروز می باشد
                     </div>
 
-                    <div id="kt11-support-subtitle">
-                        برای دریافت نسخه ربات و پشتیبانی
-                    </div>
-
-                    <div id="kt11-support-id">
-                        @Kavir_tire_bot
-                    </div>
-
-                </div>
-
-                <div id="kt11-support-arrow">
-                    ‹
                 </div>
 
             </div>
 
         `;
-
-
         panel.style.cssText = `
 
             position:fixed !important;
@@ -1194,14 +984,14 @@
             background:
                 linear-gradient(
                     145deg,
-                    #171717,
-                    #252525
+                    #0b1b2b,
+                    #123049
                 ) !important;
 
             color:#ffffff !important;
 
             border:
-                2px solid #444 !important;
+                2px solid #1f6a8a !important;
 
             border-radius:
                 13px !important;
@@ -1224,26 +1014,21 @@
                 right !important;
 
             box-shadow:
-                0 7px 27px
-                rgba(0,0,0,0.5) !important;
+                0 8px 30px
+                rgba(6,182,212,0.40) !important;
 
             box-sizing:
                 border-box !important;
 
-            /* پنل باید قابل کلیک باشد؛ none باعث می‌شد دکمه‌ها عمل نکنند */
+            
             pointer-events:
                 auto !important;
 
         `;
-
-
         const style =
             document.createElement('style');
-
         style.id =
             'kt11-dashboard-style';
-
-
         style.textContent = `
 
             #kt11-dashboard * {
@@ -1261,7 +1046,7 @@
                 padding-bottom:8px;
 
                 border-bottom:
-                    1px solid #444;
+                    1px solid #1f6a8a;
             }
 
 
@@ -1269,14 +1054,14 @@
 
                 font-size:17px;
                 font-weight:bold;
-                color:#ffd000;
+                color:#22d3ee;
             }
 
 
             #kt11-version {
 
                 font-size:9px;
-                color:#999;
+                color:#8fb4c9;
                 margin-top:2px;
             }
 
@@ -1284,13 +1069,13 @@
             #kt11-head-actions { display:flex; align-items:center; gap:8px; }
             #kt11-compact-toggle {
                 display:inline-flex; align-items:center; justify-content:center;
-                width:27px; height:25px; padding:0; border:1px solid #777;
-                border-radius:5px; background:#292929; color:#ffd000;
+                width:27px; height:25px; padding:0; border:1px solid #6f95ab;
+                border-radius:5px; background:#12304a; color:#22d3ee;
                 font: bold 17px/1 Tahoma,sans-serif; cursor:pointer;
                 flex:0 0 auto; position:relative; z-index:10;
             }
-            #kt11-compact-toggle:hover { background:#383838; }
-            #kt11-compact-toggle:focus { outline:1px solid #ffd000; outline-offset:1px; }
+            #kt11-compact-toggle:hover { background:#1a4a68; }
+            #kt11-compact-toggle:focus { outline:1px solid #22d3ee; outline-offset:1px; }
             #kt11-dashboard.kt11-compact { padding-bottom:8px !important; }
             #kt11-dashboard.kt11-compact > :not(#kt11-head):not(#kt11-control):not(#kt11-main-status) { display:none !important; }
             #kt11-dashboard.kt11-compact #kt11-head { margin-bottom:7px; padding-bottom:6px; }
@@ -1299,7 +1084,7 @@
             #kt11-dashboard.kt11-compact #kt11-control { margin-bottom:6px; }
             #kt11-dashboard.kt11-compact #kt11-main-status { margin-bottom:0; }
 
-            /* ON / OFF */
+            
 
             #kt11-control {
 
@@ -1309,7 +1094,7 @@
 
                 gap:9px;
 
-                background:#202020;
+                background:#0f2740;
                 border-radius:9px;
 
                 padding:9px;
@@ -1320,7 +1105,7 @@
             #kt11-power-label {
 
                 font-size:9px;
-                color:#999;
+                color:#8fb4c9;
                 margin-bottom:1px;
             }
 
@@ -1380,11 +1165,11 @@
             }
 
 
-            /* وضعیت اصلی */
+            
 
             #kt11-main-status {
 
-                background:#202020;
+                background:#0f2740;
 
                 border-radius:8px;
 
@@ -1408,7 +1193,7 @@
             }
 
 
-            /* انیمیشن ساعت شنی */
+            
 
             #kt11-main-icon.kt11-hourglass {
 
@@ -1440,9 +1225,7 @@
             }
 
 
-            /* =================================================
-               تنظیمات
-               ================================================= */
+            
 
             #kt11-settings-toggle {
 
@@ -1452,10 +1235,10 @@
                 align-items:center;
                 justify-content:space-between;
 
-                background:#202020;
+                background:#0f2740;
 
                 border:
-                    1px solid #3d3d3d;
+                    1px solid #1b5070;
 
                 border-radius:8px;
 
@@ -1463,7 +1246,7 @@
 
                 margin-bottom:6px;
 
-                color:#ffd000;
+                color:#22d3ee;
 
                 font-family:
                     Tahoma,
@@ -1482,7 +1265,7 @@
 
             #kt11-settings-arrow {
 
-                color:#888;
+                color:#7fa6bd;
 
                 transition:
                     transform .2s ease;
@@ -1501,12 +1284,12 @@
                 background:
                     linear-gradient(
                         135deg,
-                        #222,
-                        #171717
+                        #0e2236,
+                        #0b1b2b
                     );
 
                 border:
-                    1px solid #3d3d3d;
+                    1px solid #1b5070;
 
                 border-radius:8px;
 
@@ -1521,35 +1304,35 @@
 
             #kt11-card-toggle {
                 width:100%; display:flex; align-items:center; justify-content:space-between;
-                background:#202020; border:1px solid #3d3d3d; border-radius:8px;
-                padding:8px 10px; margin:0 0 6px; color:#ffd000;
+                background:#0f2740; border:1px solid #1b5070; border-radius:8px;
+                padding:8px 10px; margin:0 0 6px; color:#22d3ee;
                 font: bold 11px Tahoma,Arial,sans-serif; cursor:pointer; pointer-events:auto !important;
             }
-            #kt11-card-arrow { color:#888; transition:transform .2s ease; }
+            #kt11-card-arrow { color:#7fa6bd; transition:transform .2s ease; }
             #kt11-card-arrow.open { transform:rotate(180deg); }
-            #kt11-card-panel { background:linear-gradient(135deg,#222,#171717); border:1px solid #3d3d3d;
+            #kt11-card-panel { background:linear-gradient(135deg,#0e2236,#0b1b2b); border:1px solid #1b5070;
                 border-radius:8px; padding:9px; margin-bottom:7px; pointer-events:auto !important; }
             .kt11-card-label { display:block; margin:7px 0 4px; color:#c8c8c8; font:11px Tahoma,Arial,sans-serif; }
-            .kt11-card-input { box-sizing:border-box; width:100%; min-width:0; padding:9px; border:1px solid #444;
-                border-radius:6px; background:#111; color:#fff; font:13px Tahoma,Arial,sans-serif; outline:none; }
-            .kt11-card-input:focus { border-color:#ffd000; }
+            .kt11-card-input { box-sizing:border-box; width:100%; min-width:0; padding:9px; border:1px solid #1f6a8a;
+                border-radius:6px; background:#06121f; color:#fff; font:13px Tahoma,Arial,sans-serif; outline:none; }
+            .kt11-card-input:focus { border-color:#22d3ee; }
             .kt11-card-expiry { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
             #kt11-card-save { width:100%; margin-top:10px; padding:9px; border:0; border-radius:6px;
-                background:#ffd000; color:#111; font:bold 12px Tahoma,Arial,sans-serif; cursor:pointer; }
+                background:#22d3ee; color:#06121f; font:bold 12px Tahoma,Arial,sans-serif; cursor:pointer; }
             #kt11-card-message { margin-top:7px; font:11px/1.6 Tahoma,Arial,sans-serif; color:#70e08a; }
-            .kt11-card-hint { display:block; margin-top:7px; color:#999; font:10px/1.7 Tahoma,Arial,sans-serif; }
+            .kt11-card-hint { display:block; margin-top:7px; color:#8fb4c9; font:10px/1.7 Tahoma,Arial,sans-serif; }
 
             #kt11-customer-toggle {
                 width:100%;
                 display:flex;
                 align-items:center;
                 justify-content:space-between;
-                background:#202020;
-                border:1px solid #3d3d3d;
+                background:#0f2740;
+                border:1px solid #1b5070;
                 border-radius:8px;
                 padding:8px 10px;
                 margin:0 0 6px;
-                color:#ffd000;
+                color:#22d3ee;
                 font-family:Tahoma,Arial,sans-serif;
                 font-size:11px;
                 font-weight:bold;
@@ -1558,7 +1341,7 @@
             }
 
             #kt11-customer-arrow {
-                color:#888;
+                color:#7fa6bd;
                 transition:transform .2s ease;
             }
 
@@ -1567,8 +1350,8 @@
             }
 
             #kt11-customer-panel {
-                background:linear-gradient(135deg,#222,#171717);
-                border:1px solid #3d3d3d;
+                background:linear-gradient(135deg,#0e2236,#0b1b2b);
+                border:1px solid #1b5070;
                 border-radius:8px;
                 padding:7px;
                 margin-bottom:7px;
@@ -1583,7 +1366,7 @@
                 text-align:center;
                 gap:3px;
                 padding:6px 4px;
-                border:1px solid #333;
+                border:1px solid #17405c;
                 border-radius:6px;
                 background:rgba(255,255,255,.025);
                 font-family:Tahoma,Arial,sans-serif;
@@ -1618,10 +1401,10 @@
                 width:100%;
                 margin-top:1px;
                 padding:7px;
-                border:1px solid #555;
+                border:1px solid #2a86ab;
                 border-radius:6px;
-                background:#292929;
-                color:#ffd000;
+                background:#12304a;
+                color:#22d3ee;
                 font:12px Tahoma,Arial,sans-serif;
                 cursor:pointer;
                 pointer-events:auto !important;
@@ -1631,7 +1414,7 @@
             .kt11-setting-title {
 
                 font-size:9px;
-                color:#aaa;
+                color:#9dc2d6;
 
                 margin:
                     4px 0 7px;
@@ -1644,12 +1427,12 @@
 
                 height:31px;
 
-                background:#303030;
+                background:#17405c;
 
                 color:#fff;
 
                 border:
-                    1px solid #4b4b4b;
+                    1px solid #25799c;
 
                 border-radius:6px;
 
@@ -1677,10 +1460,10 @@
             .kt11-select:focus {
 
                 outline:
-                    1px solid #ffd000;
+                    1px solid #22d3ee;
 
                 border-color:
-                    #ffd000;
+                    #22d3ee;
             }
 
 
@@ -1697,11 +1480,11 @@
                 background:
                     linear-gradient(
                         135deg,
-                        #ffd000,
-                        #c79f00
+                        #22d3ee,
+                        #0891b2
                     );
 
-                color:#111;
+                color:#06121f;
 
                 font-family:
                     Tahoma,
@@ -1743,7 +1526,7 @@
             }
 
 
-            /* عنوان محصولات */
+            
 
             #kt11-products-title {
 
@@ -1771,28 +1554,28 @@
 
                 font-size:9px;
 
-                color:#888;
+                color:#7fa6bd;
 
                 font-weight:normal;
             }
 
 
-            /* باکس هر محصول */
+            
 
             .kt11-product {
 
                 background:
                     linear-gradient(
                         135deg,
-                        #252525,
-                        #181818
+                        #123049,
+                        #0c1d2f
                     );
 
                 border:
-                    1px solid #3d3d3d;
+                    1px solid #1b5070;
 
                 border-right:
-                    4px solid #ffd000;
+                    4px solid #22d3ee;
 
                 border-radius:9px;
 
@@ -1836,7 +1619,7 @@
 
                 border-radius:20px;
 
-                background:#444;
+                background:#1f6a8a;
 
                 color:#ddd;
             }
@@ -1860,17 +1643,17 @@
 
                 font-size:10px;
 
-                color:#aaa;
+                color:#9dc2d6;
 
                 margin-top:2px;
             }
 
 
-            /* اطلاعات */
+            
 
             #kt11-info {
 
-                background:#1d1d1d;
+                background:#0d2033;
 
                 border-radius:8px;
 
@@ -1900,7 +1683,7 @@
             }
 
 
-            /* اتصال */
+            
 
             #kt11-connection {
 
@@ -1981,9 +1764,10 @@
             }
 
 
-            /* خرید و پشتیبانی */
+            
 
             #kt11-support-box {
+                pointer-events:none;
 
                 position:relative;
 
@@ -2003,15 +1787,15 @@
                 background:
                     linear-gradient(
                         135deg,
-                        #292929,
-                        #171717
+                        #12304a,
+                        #0b1b2b
                     );
 
                 border:
-                    1px solid #3d3d3d;
+                    1px solid #1b5070;
 
                 border-right:
-                    3px solid #ffd000;
+                    3px solid #22d3ee;
 
                 overflow:hidden;
 
@@ -2037,11 +1821,11 @@
                     translateY(-1px);
 
                 border-color:
-                    #ffd000;
+                    #22d3ee;
 
                 box-shadow:
                     0 4px 14px
-                    rgba(255,208,0,.18);
+                    rgba(34,211,238,.18);
             }
 
 
@@ -2055,7 +1839,7 @@
             #kt11-support-box:focus-visible {
 
                 outline:
-                    2px solid #ffd000;
+                    2px solid #22d3ee;
 
                 outline-offset:2px;
             }
@@ -2076,7 +1860,7 @@
                 background:
                     linear-gradient(
                         90deg,
-                        rgba(255,208,0,.10),
+                        rgba(34,211,238,.10),
                         transparent
                     );
 
@@ -2101,15 +1885,15 @@
                 background:
                     linear-gradient(
                         135deg,
-                        #ffd000,
-                        #c79f00
+                        #22d3ee,
+                        #0891b2
                     );
 
                 font-size:16px;
 
                 box-shadow:
                     0 2px 8px
-                    rgba(255,208,0,.18);
+                    rgba(34,211,238,.18);
             }
 
 
@@ -2136,7 +1920,7 @@
 
                 font-size:8px;
 
-                color:#888;
+                color:#7fa6bd;
 
                 margin-bottom:4px;
             }
@@ -2156,14 +1940,14 @@
 
                 font-weight:bold;
 
-                color:#ffd000;
+                color:#22d3ee;
 
                 background:
-                    rgba(255,208,0,.08);
+                    rgba(34,211,238,.08);
 
                 border:
                     1px solid
-                    rgba(255,208,0,.20);
+                    rgba(34,211,238,.20);
 
                 border-radius:5px;
 
@@ -2183,51 +1967,82 @@
             }
 
         `;
-
-
         if (
             !document.getElementById(
                 'kt11-dashboard-style'
             )
         ) {
-
             document.head.appendChild(
                 style
             );
-
         }
-
-
         document.body.appendChild(
             panel
         );
-
-
-        /* =====================================================
-           دکمه ON / OFF
-           ===================================================== */
-
+        (function enableKbDrag() {
+            const head = panel.querySelector('#kt11-head');
+            if (!head) return;
+            head.style.cssText += ';cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;';
+            const KEY = 'KB_PANEL_POS';
+            function place(left, top) {
+                const w = Math.min(panel.offsetWidth, window.innerWidth);
+                left = Math.max(0, Math.min(left, window.innerWidth - w));
+                top = Math.max(0, Math.min(top, window.innerHeight - 60));
+                panel.style.setProperty('left', left + 'px', 'important');
+                panel.style.setProperty('top', top + 'px', 'important');
+                panel.style.setProperty('right', 'auto', 'important');
+                panel.style.setProperty('bottom', 'auto', 'important');
+            }
+            try {
+                const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+                if (saved && isFinite(saved.left) && isFinite(saved.top)) place(saved.left, saved.top);
+            } catch (_) {}
+            let dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+            head.addEventListener('pointerdown', event => {
+                if (event.target.closest('button')) return;
+                const rect = panel.getBoundingClientRect();
+                dragging = true; moved = false;
+                sx = event.clientX; sy = event.clientY; ox = rect.left; oy = rect.top;
+                try { head.setPointerCapture(event.pointerId); } catch (_) {}
+                head.style.cursor = 'grabbing';
+                event.preventDefault();
+            });
+            head.addEventListener('pointermove', event => {
+                if (!dragging) return;
+                moved = true;
+                place(ox + event.clientX - sx, oy + event.clientY - sy);
+            });
+            const endDrag = () => {
+                if (!dragging) return;
+                dragging = false;
+                head.style.cursor = 'grab';
+                if (!moved) return;
+                const rect = panel.getBoundingClientRect();
+                try { localStorage.setItem(KEY, JSON.stringify({ left: rect.left, top: rect.top })); } catch (_) {}
+            };
+            head.addEventListener('pointerup', endDrag);
+            head.addEventListener('pointercancel', endDrag);
+            window.addEventListener('resize', () => {
+                if (panel.style.getPropertyValue('left')) {
+                    const rect = panel.getBoundingClientRect();
+                    place(rect.left, rect.top);
+                }
+            });
+        })();
         const powerButton =
             document.getElementById(
                 'kt11-power-button'
             );
-
-
         if (powerButton) {
-
             powerButton.addEventListener(
                 'click',
                 toggleBot
             );
-
         }
-
-
         const compactToggle = panel.querySelector('#kt11-compact-toggle');
         if (compactToggle && !compactToggle.dataset.kt11Bound) {
             compactToggle.dataset.kt11Bound = '1';
             compactToggle.addEventListener('click', (event) => {
-                // جلوگیری از رسیدن کلیک به listenerهای خود سایت و رفرش ناخواسته
                 event.preventDefault();
                 event.stopPropagation();
                 event.stopImmediatePropagation();
@@ -2239,72 +2054,45 @@
                 compactToggle.setAttribute('aria-expanded', String(!compact));
             }, true);
         }
-
-        /* =====================================================
-           باز و بسته کردن تنظیمات
-           ===================================================== */
-
         const settingsToggle =
             document.getElementById(
                 'kt11-settings-toggle'
             );
-
-
         const settingsPanel =
             document.getElementById(
                 'kt11-settings-panel'
             );
-
-
         const settingsArrow =
             document.getElementById(
                 'kt11-settings-arrow'
             );
-
-
         if (
             settingsToggle &&
             settingsPanel
         ) {
-
             settingsToggle.addEventListener(
                 'click',
                 () => {
-
                     const isOpen =
                         settingsPanel.style.display !==
                         'none';
-
-
                     settingsPanel.style.display =
                         isOpen
                             ? 'none'
                             : 'block';
-
-
                     if (settingsArrow) {
-
                         settingsArrow.classList.toggle(
                             'open',
                             !isOpen
                         );
-
                     }
-
                 }
             );
-
         }
-
-
-        /* =====================================================
-           باز و بسته کردن اطلاعات مشتری
-           ===================================================== */
         const customerToggle = document.getElementById('kt11-customer-toggle');
         const customerPanel = document.getElementById('kt11-customer-panel');
         const customerArrow = document.getElementById('kt11-customer-arrow');
         const customerRefresh = document.getElementById('kt11-customer-refresh');
-
         if (customerToggle && customerPanel) {
             customerToggle.addEventListener('click', () => {
                 const isOpen = customerPanel.style.display !== 'none';
@@ -2314,9 +2102,7 @@
                 if (!isOpen) loadCustomerInfo();
             });
         }
-
         if (customerRefresh) customerRefresh.addEventListener('click', loadCustomerInfo);
-        // اطلاعات مشتری را حتی اگر بخش آن باز نشود، چند بار برای متن پرداخت بررسی کن.
         loadCustomerInfo();
         let customerCaptureAttempts = 0;
         const customerCaptureTimer = setInterval(() => {
@@ -2324,16 +2110,11 @@
             customerCaptureAttempts++;
             if (customerCaptureAttempts >= 20) clearInterval(customerCaptureTimer);
         }, 1500);
-
-        /* =====================================================
-           اطلاعات کارت و تحویل موقت CVV2 به درگاه
-           ===================================================== */
         const cardToggle = document.getElementById('kt11-card-toggle');
         const cardPanel = document.getElementById('kt11-card-panel');
         const cardArrow = document.getElementById('kt11-card-arrow');
         const cardSave = document.getElementById('kt11-card-save');
         const cardMessage = document.getElementById('kt11-card-message');
-
         if (cardToggle && cardPanel) {
             cardToggle.addEventListener('click', async () => {
                 const isOpen = cardPanel.style.display !== 'none';
@@ -2346,12 +2127,10 @@
                         document.getElementById('kt11-card-number').value = saved.number || '';
                         document.getElementById('kt11-card-month').value = saved.month || '';
                         document.getElementById('kt11-card-year').value = saved.year || '';
-                        // CVV2 عمداً از حافظه دائمی بازخوانی نمی‌شود.
                     } catch (_) {}
                 }
             });
         }
-
         if (cardSave) cardSave.addEventListener('click', async () => {
             const number = normalizeCardDigits(document.getElementById('kt11-card-number')?.value);
             const cvv = normalizeCardDigits(document.getElementById('kt11-card-cvv')?.value);
@@ -2370,93 +2149,22 @@
                 cardMessage.textContent = 'تنظیمات انجام شد';
             } catch (_) { cardMessage.style.color = '#ff7777'; cardMessage.textContent = 'ذخیره اطلاعات کارت ناموفق بود؛ دسترسی Tampermonkey را بررسی کن.'; }
         });
-
-
-        /* =====================================================
-           ذخیره تنظیمات
-           ===================================================== */
-
         const saveButton =
             document.getElementById(
                 'kt11-save-settings'
             );
-
-
         if (saveButton) {
-
             saveButton.addEventListener(
                 'click',
                 saveUserSettings
             );
-
         }
-
-
-        /* =====================================================
-           کلیک روی پشتیبانی
-           ===================================================== */
-
-        const supportBox =
-            document.getElementById(
-                'kt11-support-box'
-            );
-
-
-        if (supportBox) {
-
-            supportBox.addEventListener(
-                'click',
-                () => {
-
-                    window.open(
-                        TELEGRAM_URL,
-                        '_blank',
-                        'noopener,noreferrer'
-                    );
-
-                }
-            );
-
-
-            supportBox.addEventListener(
-                'keydown',
-                event => {
-
-                    if (
-                        event.key === 'Enter' ||
-                        event.key === ' '
-                    ) {
-
-                        event.preventDefault();
-
-                        window.open(
-                            TELEGRAM_URL,
-                            '_blank',
-                            'noopener,noreferrer'
-                        );
-
-                    }
-
-                }
-            );
-
-        }
-
-
         updatePowerUI();
-
     }
-
-
-    /* =========================================================
-       خواندن و نمایش اطلاعات مشتری از کارت اطلاعات سایت
-       ========================================================= */
     function readCustomerText(selector) {
         const element = document.querySelector(selector);
         return element ? (element.innerText || element.textContent || '').trim() : '';
     }
-
-    // قالب جدید سایت: .info-card و مقادیر داخل dt/dd
     function readInfoCardValue(sectionSelector, label) {
         const section = document.querySelector(sectionSelector);
         if (!section) return '';
@@ -2467,7 +2175,6 @@
             if (!dt || !dd) continue;
             const key = (dt.innerText || dt.textContent || '').replace(/\s+/g, ' ').trim();
             if (key === label) {
-                // فقط متن خود dd خوانده می‌شود؛ لینک/آیکون ویرایش در خروجی دخالت نمی‌کند.
                 const clone = dd.cloneNode(true);
                 clone.querySelectorAll('a, button, i, svg').forEach(node => node.remove());
                 return (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
@@ -2475,7 +2182,6 @@
         }
         return '';
     }
-
     function loadCustomerInfo() {
         const firstName = readInfoCardValue('.info-card .info-section[aria-labelledby="info-personal"]', 'نام');
         const lastName = readInfoCardValue('.info-card .info-section[aria-labelledby="info-personal"]', 'نام خانوادگی');
@@ -2492,9 +2198,7 @@
             car: readInfoCardValue('.info-card .info-section[aria-labelledby="info-car"]', 'خودرو') ||
                 readCustomerText('.card .col-md-8 .list li:nth-child(1) span')
         };
-
         try {
-            // داده خالی را جایگزین اطلاعات معتبر ذخیره‌شده نکن.
             if (typeof GM_setValue === 'function' && Object.values(fields).some(value => String(value || '').trim())) {
                 Promise.resolve(GM_setValue(KT11_CUSTOMER_INFO_KEY, {
                     name: fields.name || '',
@@ -2505,7 +2209,6 @@
                 })).catch(() => {});
             }
         } catch (_) {}
-
         const values = {
             'kt11-customer-name': fields.name,
             'kt11-customer-national-code': fields.nationalCode,
@@ -2519,31 +2222,18 @@
             element.textContent = value || 'در این صفحه پیدا نشد';
             if (value) found = true;
         });
-
-        // نمایش اطلاعات بدون پیام اضافی؛ در صورت نبود داده، متن جایگزین در هر فیلد دیده می‌شود.
     }
-
-
-    /* =========================================================
-       ذخیره تنظیمات کاربر
-       ========================================================= */
-
     function saveUserSettings() {
-
         const select1 =
             document.getElementById(
                 'kt11-product-select-1'
             );
-
         const select2 =
             document.getElementById(
                 'kt11-product-select-2'
             );
-
         const totalQuantity =
             document.getElementById('kt11-total-quantity');
-
-
         if (
             !select1 ||
             !select2 ||
@@ -2551,48 +2241,31 @@
         ) {
             return;
         }
-
-
         const size1 = select1.value;
         const size2 = select2.value;
         const selectedQuantity = Number(totalQuantity.value);
         const code1 = (productOptions.find(option => option.size === size1) || {}).code;
         const code2 = (productOptions.find(option => option.size === size2) || {}).code;
-
-        if (![1, 2].includes(selectedQuantity)) {
-            showSettingsMessage('❌ تعداد خرید فقط می‌تواند ۱ یا ۲ حلقه باشد.', true);
+        if (![1, 2, 3, 4].includes(selectedQuantity)) {
+            showSettingsMessage('❌ تعداد خرید فقط می‌تواند ۱ تا ۴ حلقه باشد.', true);
             return;
         }
-
-
         const newProduct1 = {
-
             code:
                 code1,
-
             size:
                 size1,
-
             quantity:
                 selectedQuantity
-
         };
-
-
         const newProduct2 = {
-
             code:
                 code2,
-
             size:
                 size2,
-
             quantity:
                 selectedQuantity
-
         };
-
-
         if (
             !validateSingleProduct(
                 newProduct1
@@ -2601,91 +2274,57 @@
                 newProduct2
             )
         ) {
-
             showSettingsMessage(
                 '❌ تنظیمات انتخاب‌شده صحیح نیست.',
                 true
             );
-
             return;
         }
-
-
-        /* اگر خرید در حال انجام است،
-           تنظیمات جدید روی خرید جاری اعمال نشود */
-
         if (purchaseStarted) {
-
             showSettingsMessage(
                 '⚠️ خرید در حال انجام است؛ بعد از پایان خرید تغییر دهید.',
                 true
             );
-
             return;
         }
-
-
         Object.assign(product1, newProduct1, { name: newProduct1.code });
         Object.assign(product2, newProduct2, { name: newProduct2.code });
-
-
         settings = {
             quantity: selectedQuantity,
             product1: { code: product1.code, size: product1.size, quantity: selectedQuantity },
             product2: { code: product2.code, size: product2.size, quantity: selectedQuantity }
         };
-
-
         localStorage.setItem(
             STORAGE_KEY,
             JSON.stringify(settings)
         );
-
-
         rebuildProductStates();
-
-
         updateProductCards();
-
-
         showSettingsMessage(
             '✓ تنظیمات با موفقیت ذخیره شد.',
             false
         );
-
-
         updateDashboardStatus(
             '⚙️',
             'تنظیمات خرید با موفقیت تغییر کرد.'
         );
-
     }
-
-
     function validateSingleProduct(
         product
     ) {
-
         if (
             !product ||
             typeof product.code !== 'string' ||
             typeof product.size !== 'string'
         ) {
-
             return false;
-
         }
-
-
         const validOption = productOptions.some(option =>
             option.code === product.code && option.size === product.size
         );
-
         if (!validOption) {
             return false;
         }
-
-
         if (
             !Number.isInteger(
                 product.quantity
@@ -2693,77 +2332,45 @@
             product.quantity < 1 ||
             product.quantity > 2
         ) {
-
             return false;
-
         }
-
-
         return true;
-
     }
-
-
     function showSettingsMessage(
         message,
         isError
     ) {
-
         const element =
             document.getElementById(
                 'kt11-settings-message'
             );
-
-
         if (!element) {
             return;
         }
-
-
         element.textContent =
             message;
-
-
         element.style.color =
             isError
                 ? '#ff5555'
                 : '#32d74b';
-
-
         setTimeout(() => {
-
             if (
                 element.textContent ===
                 message
             ) {
-
                 element.textContent =
                     '';
-
             }
-
         }, 3500);
-
     }
-
-
-    /* =========================================================
-       بروزرسانی نمایش محصولات
-       ========================================================= */
-
     function updateProductCards() {
-
         const container =
             document.getElementById(
                 'kt11-products'
             );
-
-
         if (!container) {
             return;
         }
-
-
         container.innerHTML =
             products.map(product => `
 
@@ -2800,32 +2407,20 @@
                 </div>
 
             `).join('');
-
     }
-
-
-    /* =========================================================
-       ON / OFF
-       ========================================================= */
-
     function toggleBot() {
         if (purchaseStarted) {
             updateDashboardStatus('⚠️', 'خرید در حال انجام است؛ تغییر وضعیت فعلاً انجام نشد.');
             return;
         }
-
         botEnabled = !botEnabled;
-
-        // با هر تغییر وضعیت ON/OFF، شمارنده از صفر شروع می‌شود.
         checkCount = 0;
         try {
             sessionStorage.setItem(CHECK_COUNT_STORAGE_KEY, '0');
         } catch (_) {}
-
         saveBotEnabledState();
         updatePowerUI();
         updateInfo();
-
         if (botEnabled) {
             botLocked = false;
             updateDashboardStatus('🟢', 'ربات روشن شد؛ تشخیص سریع موجودی فعال است.');
@@ -2836,229 +2431,136 @@
             updateInfo();
         }
     }
-
-
     function updatePowerUI() {
-
         const button =
             document.getElementById(
                 'kt11-power-button'
             );
-
         const status =
             document.getElementById(
                 'kt11-power-status'
             );
-
         if (!button || !status) {
             return;
         }
-
-
         if (botEnabled) {
-
             button.textContent =
                 'ON';
-
             button.className =
                 'on';
-
             status.textContent =
                 '🟢 روشن';
-
             status.style.color =
                 '#32d74b';
-
         } else {
-
             button.textContent =
                 'OFF';
-
             button.className =
                 'off';
-
             status.textContent =
                 '🔴 خاموش';
-
             status.style.color =
                 '#ff5555';
-
         }
-
     }
-
-
-    /* =========================================================
-       وضعیت اصلی
-       ========================================================= */
-
     function updateDashboardStatus(
         icon,
         text
     ) {
-
         createDashboard();
-
-
         const iconElement =
             document.getElementById(
                 'kt11-main-icon'
             );
-
         const textElement =
             document.getElementById(
                 'kt11-main-text'
             );
-
-
         if (iconElement) {
-
             iconElement.textContent =
                 icon;
-
-
             if (icon === '⏳') {
-
                 iconElement.classList.add(
                     'kt11-hourglass'
                 );
-
             } else {
-
                 iconElement.classList.remove(
                     'kt11-hourglass'
                 );
-
             }
-
         }
-
-
         if (textElement) {
-
             textElement.textContent =
                 text;
-
         }
-
     }
-
-
-    /* =========================================================
-       وضعیت محصولات
-       ========================================================= */
-
     function updateProductStatus(
         product,
         status,
         text
     ) {
-
         productStates[
             productKey(product)
         ] = {
-
             status,
             text
-
         };
-
-
         const badge =
             document.getElementById(
                 `kt11-badge-${productKey(product)}`
             );
-
-
         if (!badge) {
             return;
         }
-
-
         badge.textContent =
             text;
-
-
         if (
             status === 'available'
         ) {
-
             badge.style.background =
                 '#16883a';
-
             badge.style.color =
                 '#fff';
-
         } else if (
             status === 'error'
         ) {
-
             badge.style.background =
                 '#a52a2a';
-
             badge.style.color =
                 '#fff';
-
         } else if (
             status === 'buying'
         ) {
-
             badge.style.background =
-                '#b88600';
-
+                '#0e7490';
             badge.style.color =
                 '#fff';
-
         } else {
-
             badge.style.background =
-                '#444';
-
+                '#1f6a8a';
             badge.style.color =
                 '#ddd';
-
         }
-
     }
-
-
-    /* =========================================================
-       اطلاعات پنل
-       ========================================================= */
-
     function updateInfo() {
-
         const lastCheck =
             document.getElementById(
                 'kt11-last-check'
             );
-
         const count =
             document.getElementById(
                 'kt11-check-count'
             );
-
-
         if (lastCheck) {
             lastCheck.textContent = lastCheckAt
                 ? new Date(lastCheckAt).toLocaleTimeString('fa-IR')
                 : '—';
         }
-
-
         if (count) {
-
             count.textContent =
                 checkCount;
-
         }
-
     }
-
-
-    /* =========================================================
-       موتور سریع KT10.1 + پنل KT11
-       ========================================================= */
     function stopEngine() {
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = null;
@@ -3072,27 +2574,18 @@
         observerCheckTimer = null;
         observerStarted = false;
     }
-
     function validateProducts() {
         return products.every(validateSingleProduct);
     }
-
     function isBadGatewayText(text) {
         if (!text) return false;
         const value = String(text).toLowerCase().replace(/\s+/g, ' ');
-        // عدد 502 به‌تنهایی ممکن است در متن عادی صفحه یا پنل دیده شود؛
-        // فقط عبارت مشخص خطای درگاه را خطای واقعی صفحه حساب کن.
         return value.includes('502 bad gateway') || value.includes('bad gateway');
     }
-
     function recoverFrom502(source = 'unknown') {
         if (!botEnabled || botLocked) return;
         const now = Date.now();
         if (gatewayRecoveryRunning || now - lastGatewayRecovery < BAD_GATEWAY_COOLDOWN) return;
-
-        // تغییر سایت: در خطای 502 صفحه را خودکار رفرش نکن؛ این کار می‌تواند
-        // چرخه رفرش ایجاد کند و باعث محدودیت حساب شود. فقط هشدار بده و اجازه بده
-        // کاربر وضعیت سایت را بررسی کند یا بعداً دستی دوباره تلاش کند.
         gatewayRecoveryRunning = true;
         lastGatewayRecovery = now;
         updateDashboardStatus('⚠️', `خطای 502 از ${source}؛ رفرش خودکار متوقف شد. وضعیت سایت را بررسی کنید.`);
@@ -3103,13 +2596,10 @@
             gatewayRecoveryRunning = false;
         }, 5000);
     }
-
     function checkFor502Page() {
         const now = Date.now();
         if (now - last502PageCheck < 1500) return false;
         last502PageCheck = now;
-        // متن پنل خود ربات را از بررسی حذف کن تا هشدار قبلی خودش
-        // باعث تشخیص اشتباه 502 در بررسی بعدی نشود.
         let bodyText = '';
         if (document.body) {
             const pageCopy = document.body.cloneNode(true);
@@ -3123,7 +2613,6 @@
         }
         return false;
     }
-
     function installFetchMonitor() {
         if (typeof window.fetch !== 'function' || window.fetch.__kavirMonitored) return;
         const originalFetch = window.fetch;
@@ -3140,7 +2629,6 @@
         monitoredFetch.__kavirMonitored = true;
         window.fetch = monitoredFetch;
     }
-
     function installXHRMonitor() {
         if (XMLHttpRequest.prototype.send.__kavirMonitored) return;
         const originalOpen = XMLHttpRequest.prototype.open;
@@ -3161,9 +2649,6 @@
         monitoredSend.__kavirMonitored = true;
         XMLHttpRequest.prototype.send = monitoredSend;
     }
-
-    // یکسان‌سازی سایزها: 205/50/16 و 205/50R16 به یک قالب تبدیل می‌شوند.
-    // ارقام فارسی و عربی نیز برای تطبیق دقیق به ارقام انگلیسی تبدیل می‌شوند.
     function normalizeSize(value) {
         return String(value || '')
             .replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))
@@ -3172,20 +2657,16 @@
             .replace(/\s+/g, '')
             .toUpperCase();
     }
-
     function findProducts() {
         const cards = Array.from(document.querySelectorAll('.product'));
         const found = [];
         const seenCards = new Set();
-
-        // ترتیب بررسی بر اساس اولویت پنل است: اولویت اول، سپس اولویت دوم.
         for (const selectedProduct of products) {
             for (const card of cards) {
                 if (seenCards.has(card)) continue;
                 const title = card.querySelector('.title');
                 if (!title) continue;
                 if (!normalizeSize(card.textContent).includes(normalizeSize(selectedProduct.size))) continue;
-
                 seenCards.add(card);
                 const actualTitle = title.textContent.trim();
                 const actualCodeMatch = actualTitle.match(/\bKB\s*\d+\b/i);
@@ -3193,33 +2674,26 @@
                     card,
                     product: {
                         ...selectedProduct,
-                        // گزارش کد واقعی محصول روی سایت؛ تطبیق بر اساس سایز انتخابی است.
                         name: actualCodeMatch ? actualCodeMatch[0].replace(/\s+/g, '').toUpperCase() : actualTitle
                     }
                 });
             }
         }
-
         return found;
     }
-
     function isVisible(element) {
         if (!element || element.hidden || element.classList.contains('d-none')) return false;
         const style = window.getComputedStyle(element);
         return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
     }
-
     function tryAddProducts() {
         if (!botEnabled || botLocked) return false;
         if (checkFor502Page()) return false;
-
         const items = findProducts();
         if (!items.length) return false;
-
         let clicked = false;
         const justAdded = [];
         const clickedSizes = new Set();
-
         for (const item of items) {
             const { card, product } = item;
             const normalizedProductSize = normalizeSize(product.size);
@@ -3227,17 +2701,13 @@
             const unavailable = card.querySelector(
                 '.control.unavailable, .product-unavailable'
             );
-
             if (unavailable && isVisible(unavailable)) {
                 updateProductStatus(product, 'waiting', 'در انتظار موجودی');
                 continue;
             }
-
-            // دکمه موجودی در صفحه فروش با کلاس product-add-button و wire:click="add" نمایش داده می‌شود.
             const basketButton = card.querySelector(
                 'button.product-add-button, button.btn-basket, .product-add-button, .btn-basket'
             );
-
             if (
                 !basketButton ||
                 basketButton.disabled ||
@@ -3245,7 +2715,6 @@
                 basketButton.dataset.kavirClicked === '1' ||
                 !isVisible(basketButton)
             ) continue;
-
             basketButton.dataset.kavirClicked = '1';
             clickedSizes.add(normalizedProductSize);
             clicked = true;
@@ -3262,12 +2731,10 @@
                 '| add action:',
                 basketButton.getAttribute('wire:click')
             );
-            try { sessionStorage.removeItem(PAYMENT_FLOW_KEY); } catch (_) {}
+            try { sessionStorage.removeItem(PAYMENT_FLOW_KEY); sessionStorage.removeItem('KB_QTY_CLICKS'); } catch (_) {}
             basketButton.click();
-            // هر سفارش فقط شامل یک محصول/سایز باشد؛ تعداد حلقه در سبد روی ۱ یا ۲ تنظیم می‌شود.
             break;
         }
-
         if (clicked) {
             botLocked = true;
             purchaseStarted = true;
@@ -3280,22 +2747,18 @@
             if (fastObserver) fastObserver.disconnect();
             fastObserver = null;
             console.log('[KavirTire] Product add requested - waiting for payment page');
-            // سایت ممکن است صفحه را کامل جابه‌جا کند؛ مراحل پرداخت روی /esale/payment اجرا می‌شوند.
             if (location.pathname === '/esale/payment') {
                 setTimeout(startPaymentFlow, 300);
             }
             return true;
         }
-
         return false;
     }
-
     function startFastObserver() {
         if (observerStarted || !document.body) return;
         observerStarted = true;
         fastObserver = new MutationObserver(() => {
             if (observerCheckTimer || botLocked || !botEnabled) return;
-            // جهش‌های DOM متعدد در یک بازه کوتاه را به یک بررسی تبدیل کن تا تب قفل نشود.
             observerCheckTimer = setTimeout(() => {
                 observerCheckTimer = null;
                 if (!botLocked && botEnabled) tryAddProducts();
@@ -3309,7 +2772,6 @@
         });
         console.log('[KavirTire] Fast observer started');
     }
-
     function startFastPolling() {
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(() => {
@@ -3321,22 +2783,16 @@
             tryAddProducts();
         }, FAST_CHECK_INTERVAL);
     }
-
     function clickAvailabilityRefresh() {
         if (!botEnabled || botLocked) return;
-
         const refreshButton = document.querySelector('[data-refresh-availability], .refresh-availability');
         if (!refreshButton || !isVisible(refreshButton) || refreshButton.disabled ||
             refreshButton.getAttribute('aria-disabled') === 'true') {
-            // اگر سایت هنوز دکمه را آزاد نکرده، نوبت را از دست نده؛ زود دوباره بررسی کن.
-            // refreshTimer در این نسخه timeout است، پس فقط یک تلاش مجدد هم‌زمان خواهیم داشت.
             console.log('[KavirTire] دکمه بروزرسانی هنوز آماده نیست؛ بررسی مجدد تا 150ms دیگر.');
             refreshTimer = setTimeout(clickAvailabilityRefresh, 150);
             return;
         }
-
         refreshButton.click();
-        // هر کلیک واقعی روی دکمه استعلام = یک استعلام؛ تیک‌های polling در شمارنده حساب نمی‌شوند.
         checkCount++;
         lastCheckAt = Date.now();
         try {
@@ -3345,17 +2801,11 @@
         } catch (_) {}
         updateInfo();
         console.log('[KavirTire] دکمه «بروزرسانی موجودی» کلیک شد؛ تعداد استعلام:', checkCount, new Date().toLocaleTimeString());
-
-        // بعد از شروع بروزرسانی، یک بررسی اضافه انجام بده؛ بررسی سریع و MutationObserver هم فعال می‌مانند.
         setTimeout(() => {
             if (botEnabled && !botLocked) tryAddProducts();
         }, 150);
-
-        // فاصله تعریف‌شده از کلیک واقعی حساب می‌شود، نه از نوبت تایمر قبلی؛
-        // اگر دکمه موقتاً غیرفعال بود، بالا هر 150ms تا آماده‌شدن بررسی می‌شود.
         refreshTimer = setTimeout(clickAvailabilityRefresh, REFRESH_INTERVAL);
     }
-
     function startEngine() {
         if (!botEnabled || purchaseStarted || !validateProducts()) return;
         installFetchMonitor();
@@ -3363,134 +2813,105 @@
         startFastObserver();
         startFastPolling();
         tryAddProducts();
-
         if (refreshTimer) clearTimeout(refreshTimer);
-        // اولین استعلام بلافاصله آغاز می‌شود؛ دفعات بعدی با فاصله معمول ادامه پیدا می‌کنند.
         refreshTimer = null;
         clickAvailabilityRefresh();
     }
-
-    /* =========================================================
-       ادامه خودکار خرید در صفحه پرداخت
-       این صفحه ممکن است پس از افزودن به سبد، با بارگذاری کامل باز شود؛
-       بنابراین مراحل تعداد، درگاه و ادامه خرید باید از همین مسیر اجرا شوند.
-       ========================================================= */
-
     let paymentFlowStarted = false;
     const PAYMENT_FLOW_KEY = 'KT11_PAYMENT_FLOW_STARTED';
-
     function startPaymentFlow() {
         if (paymentFlowStarted || !botEnabled) return;
         paymentFlowStarted = true;
-
         updateDashboardStatus('🛒', 'صفحه پرداخت باز شد؛ در حال تنظیم تعداد حلقه‌ها...');
         setTimeout(setPaymentQuantity, 500);
     }
-
     function setPaymentQuantity() {
         if (!botEnabled) return;
-
-        const desiredQuantity = Number(settings.quantity) === 1 ? 1 : 2;
-
-        if (desiredQuantity === 1) {
-            // تعداد پیش‌فرض سایت ۲ است؛ برای سفارش یک‌حلقه‌ای منفی را فقط یک بار می‌زنیم.
-            const minusButton = [...document.querySelectorAll(
-                'button[wire\\:click="minus()"]'
-            )].find(button => isVisible(button) && !button.disabled);
-
-            if (!minusButton) {
-                setTimeout(setPaymentQuantity, STEP_INTERVAL);
-                return;
-            }
-
-            if (sessionStorage.getItem(PAYMENT_FLOW_KEY) !== 'minus-clicked') {
-                sessionStorage.setItem(PAYMENT_FLOW_KEY, 'minus-clicked');
-                minusButton.click();
-                updateDashboardStatus('🛒', 'درخواست کاهش تعداد به ۱ حلقه ارسال شد');
-                setTimeout(selectPaymentGateway, 700);
-                return;
-            }
+        const requested = Number(settings.quantity);
+        const desiredQuantity = [1, 2, 3, 4].includes(requested) ? requested : 2;
+        const DEFAULT_QTY = 2;
+        const QTY_KEY = 'KB_QTY_CLICKS';
+        const needed = Math.abs(desiredQuantity - DEFAULT_QTY);
+        if (needed === 0) {
+            updateDashboardStatus('🛒', `تعداد سفارش: ${desiredQuantity} حلقه`);
+            setTimeout(selectPaymentGateway, 250);
+            return;
         }
-
-        updateDashboardStatus('🛒', `تعداد سفارش: ${desiredQuantity} حلقه`);
-        setTimeout(selectPaymentGateway, 250);
+        const action = desiredQuantity < DEFAULT_QTY ? 'minus()' : 'plus()';
+        const done = Number(sessionStorage.getItem(QTY_KEY)) || 0;
+        if (done >= needed) {
+            updateDashboardStatus('🛒', `تعداد سفارش: ${desiredQuantity} حلقه`);
+            setTimeout(selectPaymentGateway, 400);
+            return;
+        }
+        const button = [...document.querySelectorAll(`[wire\\:click="${action}"]`)]
+            .find(element => isVisible(element) && !element.disabled);
+        if (!button) {
+            window.__kbQtyWaits = (window.__kbQtyWaits || 0) + 1;
+            if (window.__kbQtyWaits > 80) {
+                updateDashboardStatus('⚠️', `دکمه ${action} پیدا نشد؛ با تعداد پیش‌فرض (۲) ادامه می‌دهم.`);
+                setTimeout(selectPaymentGateway, 250);
+                return;
+            }
+            setTimeout(setPaymentQuantity, STEP_INTERVAL);
+            return;
+        }
+        window.__kbQtyWaits = 0;
+        sessionStorage.setItem(QTY_KEY, String(done + 1));
+        button.click();
+        updateDashboardStatus('🛒', `تنظیم تعداد: ${done + 1} از ${needed}`);
+        setTimeout(setPaymentQuantity, 700);
     }
-
     function selectPaymentGateway() {
         if (!botEnabled) return;
-
         const gateway = [...document.querySelectorAll('.method')]
             .find(element => element.getAttribute('wire:click') === "setGateway('refahk')");
-
         if (!gateway) {
             setTimeout(selectPaymentGateway, STEP_INTERVAL);
             return;
         }
-
         if (!gateway.classList.contains('active')) {
             gateway.click();
             updateDashboardStatus('💳', 'درخواست انتخاب درگاه رفاه ارسال شد');
             setTimeout(confirmPaymentStep, 500);
             return;
         }
-
         setTimeout(confirmPaymentStep, 200);
     }
-
     function confirmPaymentStep() {
         if (!botEnabled) return;
-
         const gateway = [...document.querySelectorAll('.method')]
             .find(element => element.getAttribute('wire:click') === "setGateway('refahk')");
-
-        // اگر درگاه هنوز فعال نشده، فرصت بدهیم تغییر Livewire اعمال شود.
         if (!gateway || !gateway.classList.contains('active')) {
             setTimeout(selectPaymentGateway, STEP_INTERVAL);
             return;
         }
-
-        // در نسخه جدید سایت، دکمه تأیید از <a> به <button> تغییر کرده است.
-        // انتخاب بر اساس wire:click انجام می‌شود تا به نوع تگ وابسته نباشد.
         const nextButton = [...document.querySelectorAll('[wire\\:click]')].find(element =>
             element.getAttribute('wire:click') === 'next()' &&
             (element.matches('button') || element.classList.contains('btn-pay')) &&
             isVisible(element)
         );
-
-        // عناصر wire:loading در HTML همیشه وجود دارند؛ وجودشان به‌تنهایی
-        // به معنی در حال بارگذاری بودن نیست. فقط وضعیت واقعی disabled را بررسی کن.
         if (!nextButton || nextButton.disabled || nextButton.hasAttribute('disabled')) {
             setTimeout(confirmPaymentStep, STEP_INTERVAL);
             return;
         }
-
         updateDashboardStatus('➡️', 'درگاه رفاه انتخاب شد؛ در حال تأیید و پرداخت...');
-        // کلیک عادی DOM باعث اجرای handler ثبت‌شده Livewire روی دکمه می‌شود.
         nextButton.click();
-        // فقط پس از ارسال کلیک، برای جلوگیری از چندبار ارسال، ربات متوقف می‌شود.
         botEnabled = false;
         saveBotEnabledState();
         updatePowerUI();
         if (refreshTimer) clearTimeout(refreshTimer);
         if (pollTimer) clearInterval(pollTimer);
     }
-
-    /* =========================================================
-       شروع و مراقبت از پنل
-       ========================================================= */
-
     if (!validateProducts()) {
         console.error('[KavirTire] تنظیمات محصولات صحیح نیست.');
         return;
     }
-
     createDashboard();
-
     const dashboardObserver = new MutationObserver(() => {
         if (!document.getElementById('kt11-dashboard')) createDashboard();
     });
     if (document.body) dashboardObserver.observe(document.body, { childList: true });
-
     if (location.pathname === '/esale/products') {
         setTimeout(() => {
             if (!botEnabled) return;
@@ -3505,13 +2926,10 @@
     } else {
         updateDashboardStatus('🤖', 'برای شروع، وارد صفحه خرید لاستیک شوید.');
     }
-
-    // تغییر مسیرهای SPA را هم مدیریت می‌کنیم تا ورود به صفحه خرید نیاز به رفرش صفحه نداشته باشد.
     let lastObservedPath = location.pathname;
     setInterval(() => {
         if (location.hostname !== 'kavirtire.ir') return;
         const currentPath = location.pathname;
-
         if (currentPath !== lastObservedPath) {
             lastObservedPath = currentPath;
             if (currentPath === '/esale/products') {
@@ -3529,10 +2947,8 @@
                 stopEngine();
             }
         }
-
         if (currentPath === '/esale/payment' && !paymentFlowStarted && botEnabled) {
             startPaymentFlow();
         }
     }, 250);
-
 })();
