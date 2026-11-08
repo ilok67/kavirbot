@@ -1,4 +1,4 @@
-(function () {
+oh(function () {
     'use strict';
     const KT11_TOKEN_KEY = 'KT11_SAMAN_PAYMENT_TOKEN';
     const KT11_TOKEN_TIME_KEY = 'KT11_SAMAN_PAYMENT_TOKEN_TIME';
@@ -961,7 +961,7 @@
                 <div id="kt11-support-content">
 
                     <div id="kt11-support-title">
-                        این بات مخصوص دی جی عاصم نوروز می باشد
+                        این بات مخصوص بابای بردیا می باشد
                     </div>
 
                 </div>
