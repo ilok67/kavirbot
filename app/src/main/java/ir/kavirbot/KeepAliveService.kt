@@ -21,7 +21,7 @@ class KeepAliveService : Service() {
         }
         val n = Notification.Builder(this).apply {
             if (Build.VERSION.SDK_INT >= 26) setChannelId("kb")
-            setContentTitle("عاصم کویر بات فعال است")
+            setContentTitle(" کویر بات فعال است")
             setSmallIcon(android.R.drawable.stat_notify_sync)
             setOngoing(true)
         }.build()
