@@ -17,11 +17,11 @@ class KeepAliveService : Service() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(NotificationChannel("kb", "KavirBot", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel("kb", "عاصم کویر بات", NotificationManager.IMPORTANCE_LOW))
         }
         val n = Notification.Builder(this).apply {
             if (Build.VERSION.SDK_INT >= 26) setChannelId("kb")
-            setContentTitle("KavirBot فعال است")
+            setContentTitle("عاصم کویر بات فعال است")
             setSmallIcon(android.R.drawable.stat_notify_sync)
             setOngoing(true)
         }.build()
