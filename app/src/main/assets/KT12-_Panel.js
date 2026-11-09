@@ -679,6 +679,7 @@
 
                 <div id="kt11-head-actions">
                     <button id="kt11-compact-toggle" type="button" aria-expanded="true" title="جمع کردن پنل">□</button>
+                    <button id="kt11-hide-toggle" type="button" title="مخفی کردن پنل">‹</button>
                 </div>
 
             </div>
@@ -1067,15 +1068,15 @@
 
 
             #kt11-head-actions { display:flex; align-items:center; gap:8px; }
-            #kt11-compact-toggle {
+            #kt11-compact-toggle, #kt11-hide-toggle {
                 display:inline-flex; align-items:center; justify-content:center;
                 width:27px; height:25px; padding:0; border:1px solid #6f95ab;
                 border-radius:5px; background:#12304a; color:#22d3ee;
                 font: bold 17px/1 Tahoma,sans-serif; cursor:pointer;
                 flex:0 0 auto; position:relative; z-index:10;
             }
-            #kt11-compact-toggle:hover { background:#1a4a68; }
-            #kt11-compact-toggle:focus { outline:1px solid #22d3ee; outline-offset:1px; }
+            #kt11-compact-toggle:hover, #kt11-hide-toggle:hover { background:#1a4a68; }
+            #kt11-compact-toggle:focus, #kt11-hide-toggle:focus { outline:1px solid #22d3ee; outline-offset:1px; }
             #kt11-dashboard.kt11-compact { padding-bottom:8px !important; }
             #kt11-dashboard.kt11-compact > :not(#kt11-head):not(#kt11-control):not(#kt11-main-status) { display:none !important; }
             #kt11-dashboard.kt11-compact #kt11-head { margin-bottom:7px; padding-bottom:6px; }
@@ -2096,9 +2097,22 @@
         const compactToggle = panel.querySelector('#kt11-compact-toggle');
         if (compactToggle && !compactToggle.dataset.kt11Bound) {
             compactToggle.dataset.kt11Bound = '1';
-            compactToggle.textContent = '‹';
-            compactToggle.title = 'مخفی کردن پنل';
             compactToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                const dashboard = document.getElementById('kt11-dashboard');
+                if (!dashboard) return;
+                const compact = dashboard.classList.toggle('kt11-compact');
+                compactToggle.textContent = '□';
+                compactToggle.title = compact ? 'باز کردن پنل' : 'جمع کردن پنل';
+                compactToggle.setAttribute('aria-expanded', String(!compact));
+            }, true);
+        }
+        const hideToggle = panel.querySelector('#kt11-hide-toggle');
+        if (hideToggle && !hideToggle.dataset.kt11Bound) {
+            hideToggle.dataset.kt11Bound = '1';
+            hideToggle.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 event.stopImmediatePropagation();
