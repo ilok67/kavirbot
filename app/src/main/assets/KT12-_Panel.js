@@ -1,4 +1,4 @@
-oh(function () {
+(function () {
     'use strict';
     const KT11_TOKEN_KEY = 'KT11_SAMAN_PAYMENT_TOKEN';
     const KT11_TOKEN_TIME_KEY = 'KT11_SAMAN_PAYMENT_TOKEN_TIME';
