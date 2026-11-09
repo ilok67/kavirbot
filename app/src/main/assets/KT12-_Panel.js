@@ -2023,11 +2023,65 @@
             head.addEventListener('pointerup', endDrag);
             head.addEventListener('pointercancel', endDrag);
             window.addEventListener('resize', () => {
-                if (panel.style.getPropertyValue('left')) {
+                if (panel.style.getPropertyValue('left') && panel.dataset.kbHidden !== '1') {
                     const rect = panel.getBoundingClientRect();
                     place(rect.left, rect.top);
                 }
             });
+        })();
+        (function enableKbDrawer() {
+            const OPEN_KEY = 'KB_PANEL_OPEN';
+            const getPanel = () => document.getElementById('kt11-dashboard');
+            const savedOpen = () => {
+                try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch (_) { return true; }
+            };
+            let tab = document.getElementById('kb-tab');
+            if (!tab) {
+                tab = document.createElement('div');
+                tab.id = 'kb-tab';
+                tab.setAttribute('role', 'button');
+                tab.style.cssText = [
+                    'position:fixed', 'left:0', 'top:50%', 'transform:translateY(-50%)',
+                    'width:22px', 'height:72px', 'display:flex', 'align-items:center',
+                    'justify-content:center', 'box-sizing:border-box',
+                    'background:rgba(34,211,238,0.28)', 'border:1px solid rgba(34,211,238,0.55)',
+                    'border-left:none', 'border-radius:0 14px 14px 0', 'color:#e6fbff',
+                    'font:bold 20px/1 Tahoma,sans-serif', 'opacity:0.45', 'cursor:pointer',
+                    'z-index:2147483647', 'user-select:none', '-webkit-user-select:none',
+                    '-webkit-tap-highlight-color:transparent', 'touch-action:manipulation',
+                    'transition:opacity .2s'
+                ].join(';') + ';';
+                tab.addEventListener('pointerdown', () => { tab.style.opacity = '0.9'; });
+                const dim = () => { tab.style.opacity = '0.45'; };
+                tab.addEventListener('pointerup', dim);
+                tab.addEventListener('pointercancel', dim);
+                tab.addEventListener('click', () => {
+                    const p = getPanel();
+                    if (!p) return;
+                    window.__kbSetOpen(p.dataset.kbHidden === '1', true);
+                });
+                document.documentElement.appendChild(tab);
+            }
+            window.__kbSetOpen = function (open, animate) {
+                const p = getPanel();
+                if (!p) return;
+                p.style.setProperty('transition', animate ? 'transform .3s ease, opacity .3s ease' : 'none', 'important');
+                if (open) {
+                    p.dataset.kbHidden = '0';
+                    p.style.setProperty('transform', 'translateX(0)', 'important');
+                    p.style.setProperty('opacity', '1', 'important');
+                    p.style.setProperty('pointer-events', 'auto', 'important');
+                } else {
+                    const rect = p.getBoundingClientRect();
+                    p.dataset.kbHidden = '1';
+                    p.style.setProperty('transform', 'translateX(' + (-(rect.right + 16)) + 'px)', 'important');
+                    p.style.setProperty('opacity', '0', 'important');
+                    p.style.setProperty('pointer-events', 'none', 'important');
+                }
+                tab.textContent = open ? '‹' : '›';
+                try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch (_) {}
+            };
+            window.__kbSetOpen(savedOpen(), false);
         })();
         const powerButton =
             document.getElementById(
@@ -2042,16 +2096,13 @@
         const compactToggle = panel.querySelector('#kt11-compact-toggle');
         if (compactToggle && !compactToggle.dataset.kt11Bound) {
             compactToggle.dataset.kt11Bound = '1';
+            compactToggle.textContent = '‹';
+            compactToggle.title = 'مخفی کردن پنل';
             compactToggle.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 event.stopImmediatePropagation();
-                const dashboard = document.getElementById('kt11-dashboard');
-                if (!dashboard) return;
-                const compact = dashboard.classList.toggle('kt11-compact');
-                compactToggle.textContent = '□';
-                compactToggle.title = compact ? 'باز کردن پنل' : 'جمع کردن پنل';
-                compactToggle.setAttribute('aria-expanded', String(!compact));
+                if (window.__kbSetOpen) window.__kbSetOpen(false, true);
             }, true);
         }
         const settingsToggle =
